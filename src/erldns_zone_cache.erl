@@ -331,7 +331,7 @@ put_zone_rrset({ZoneName, Digest, Records, _Keys}, RRFqdn, Type, Counter) ->
     case find_zone_in_cache(erldns:normalize_name(ZoneName)) of
         {ok, Zone} ->
             % TODO: remove debug
-            lager:debug("Putting RRSet (~p) with Type: ~p for Zone (~p): ~p", [RRFqdn, Type, ZoneName, Records]),
+            logger:debug("Putting RRSet (~p) with Type: ~p for Zone (~p): ~p", [RRFqdn, Type, ZoneName, Records]),
             KeySets = Zone#zone.keysets,
             SignedRRSet = ?with_span(
                 <<"sign_rrset">>,
@@ -363,7 +363,7 @@ put_zone_rrset({ZoneName, Digest, Records, _Keys}, RRFqdn, Type, Counter) ->
             ),
             write_rrset_sync_counter({ZoneName, RRFqdn, Type, Counter}),
 
-            lager:debug("RRSet update completed for FQDN: ~p, Type: ~p", [RRFqdn, Type]),
+            logger:debug("RRSet update completed for FQDN: ~p, Type: ~p", [RRFqdn, Type]),
             ok;
         % if zone is not in cache, return error
         _ ->
@@ -400,7 +400,7 @@ delete_zone_rrset(ZoneName, Digest, RRFqdn, Type, Counter) ->
             CurrentCounter = get_rrset_sync_counter(ZoneName, RRFqdn, Type),
             case Counter of
                 N when N =:= 0; CurrentCounter < N ->
-                    lager:debug("Removing RRSet (~p) with type ~p", [RRFqdn, Type]),
+                    logger:debug("Removing RRSet (~p) with type ~p", [RRFqdn, Type]),
                     ZoneRecordsCount = Zone#zone.record_count,
                     CurrentRRSetRecords = get_records_by_name_and_type(RRFqdn, Type),
                     erldns_storage:select_delete(
@@ -434,7 +434,7 @@ delete_zone_rrset(ZoneName, Digest, RRFqdn, Type, Counter) ->
                             ok
                     end;
                 N when CurrentCounter > N ->
-                    lager:debug("Not processing delete operation for RRSet (~p): counter (~p) provided is lower than system", [
+                    logger:debug("Not processing delete operation for RRSet (~p): counter (~p) provided is lower than system", [
                         RRFqdn, Counter
                     ])
             end;
@@ -498,7 +498,7 @@ init([]) ->
 % gen_server callbacks
 
 handle_call(Message, _From, State) ->
-    lager:debug("Received unsupported call (message: ~p)", [Message]),
+    logger:debug("Received unsupported call (message: ~p)", [Message]),
     {reply, ok, State}.
 
 handle_cast({delete, Name}, State) ->
@@ -506,7 +506,7 @@ handle_cast({delete, Name}, State) ->
     delete_zone_records(Name),
     {noreply, State};
 handle_cast(Message, State) ->
-    lager:debug("Received unsupported cast (message: ~p)", [Message]),
+    logger:debug("Received unsupported cast (message: ~p)", [Message]),
     {noreply, State}.
 
 handle_info(_Message, State) ->

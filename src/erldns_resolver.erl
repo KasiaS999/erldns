@@ -297,7 +297,7 @@ resolve_exact_match(Message, Qname, Qtype, Host, CnameChain, MatchedRecords, Zon
     dns:message().
 resolve_exact_type_match(Message, Qname, ?DNS_TYPE_NS, Host, CnameChain, MatchedRecords, Zone, []) ->
     % There was an exact type match for an NS query, however there is no SOA record for the zone.
-    lager:info("Exact match for NS with no SOA in the zone (qname: ~p)", [Qname]),
+    logger:info("Exact match for NS with no SOA in the zone (qname: ~p)", [Qname]),
     Answer = lists:last(MatchedRecords),
     Name = Answer#dns_rr.name,
     % It isn't clear what the QTYPE should be on a delegated restart. I assume an A record.

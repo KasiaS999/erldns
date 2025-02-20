@@ -64,7 +64,7 @@ start_link() ->
 -if(not ENABLED).
 
 throttle(_Message, {_, _Host}) ->
-    %% lager:debug("Throttle not enabled"),
+    %% logger:debug("Throttle not enabled"),
     ok.
 
 -else.

@@ -8,12 +8,24 @@
 -include_lib("dns_erlang/include/dns.hrl").
 -include_lib("erldns/include/erldns.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(TEST_MODULE, erldns_zone_cache).
 
 setup_cache() ->
-    lager:start(),
-    lager:set_loglevel(lager_console_backend, debug),
+    logger:add_handler(console_backend, logger_std_h, #{
+        level => debug
+    }),
+
+    logger:add_handler(error, logger_std_h, #{
+        level => error,
+        config => #{file => "error.log"}
+    }),
+
+    logger:add_handler(info, logger_std_h, #{
+        level => info,
+        config => #{file => "info.log"}
+    }),
     meck:new(folsom_metrics),
     meck:expect(
         folsom_metrics,

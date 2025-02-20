@@ -169,7 +169,7 @@ load_zones() ->
 load_zones(Filename) when is_list(Filename) ->
     case file:read_file(Filename) of
         {ok, Binary} ->
-            lager:debug("Parsing zones JSON"),
+            logger:debug("Parsing zones JSON"),
 
             %% The "object_finish" callback override is here so that we don't return maps
             %% and instead keep the list of decoded information as a keyword list. Maybe we
@@ -179,7 +179,7 @@ load_zones(Filename) when is_list(Filename) ->
                 object_finish => fun(Acc, OldAcc) -> {lists:reverse(Acc), OldAcc} end
             }),
 
-            lager:debug("Putting zones into cache"),
+            logger:debug("Putting zones into cache"),
             lists:foreach(
                 fun(JsonZone) ->
                     Zone = erldns_zone_parser:zone_to_erlang(JsonZone),
@@ -187,7 +187,7 @@ load_zones(Filename) when is_list(Filename) ->
                 end,
                 JsonZones
             ),
-            lager:debug("Loaded zones (count: ~p)", [length(JsonZones)]),
+            logger:debug("Loaded zones (count: ~p)", [length(JsonZones)]),
             {ok, length(JsonZones)};
         {error, Reason} ->
             erldns_events:notify({?MODULE, failed_zones_load, Reason}),
