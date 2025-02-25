@@ -78,10 +78,10 @@ init([]) ->
     {ok, #state{handlers = []}}.
 
 handle_call({register_handler, RecordTypes, Module}, _, State) ->
-    lager:info("Registered handler (module: ~p, types: ~p)", [Module, RecordTypes]),
+    logger:info("Registered handler (module: ~p, types: ~p)", [Module, RecordTypes]),
     {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes, 1}]}};
 handle_call({register_handler, RecordTypes, Module, Version}, _, State) ->
-    lager:info("Registered handler (module: ~p, types: ~p, version: ~p)", [Module, RecordTypes, Version]),
+    logger:info("Registered handler (module: ~p, types: ~p, version: ~p)", [Module, RecordTypes, Version]),
     {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes, Version}]}};
 handle_call({get_handlers}, _, State) ->
     {reply, State#state.handlers, State}.
@@ -109,7 +109,7 @@ handle(Message, Context = {_, Host}) when is_record(Message, dns_message) ->
 %% The message was bad so just return it.
 %% TODO: consider just throwing away the message
 handle(Message, {_, Host}) ->
-    lager:error("Received a bad message (module: ~p, event: ~p, message: ~p, host: ~p)", [?MODULE, bad_message, Message, Host]),
+    logger:error("Received a bad message (module: ~p, event: ~p, message: ~p, host: ~p)", [?MODULE, bad_message, Message, Host]),
     Message.
 
 %% We throttle ANY queries to discourage use of our authoritative name servers
@@ -183,7 +183,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
                     maybe_cache_packet(Response, Response#dns_message.aa)
             catch
                 Exception:Reason:Stacktrace ->
-                    % lager:error("Error answering request (module: ~p, event: ~p, exception: ~p, reason: ~p, message: ~p, stacktrace: "
+                    % logger:error("Error answering request (module: ~p, event: ~p, exception: ~p, reason: ~p, message: ~p, stacktrace: "
                     %            "~p)",
                     %            [?MODULE, resolve_error, Exception, Reason, Message, Stacktrace]),
                     erldns_events:notify({?MODULE, resolve_error, {Exception, Reason, Message, Stacktrace}}),
@@ -227,7 +227,7 @@ notify_empty_response(Message) ->
             erldns_events:notify({?MODULE, refused_response, Message#dns_message.questions}),
             Message;
         {_, 0} ->
-            lager:info("Empty response (module: ~p, event: ~p, message: ~p)", [?MODULE, empty_response, Message]),
+            logger:info("Empty response (module: ~p, event: ~p, message: ~p)", [?MODULE, empty_response, Message]),
             erldns_events:notify({?MODULE, empty_response, Message}),
             Message;
         _ ->

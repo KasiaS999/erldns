@@ -305,7 +305,7 @@ put_zone_rrset({ZoneName, Digest, Records, _Keys}, RRFqdn, Type, Counter) ->
     case find_zone_in_cache(erldns:normalize_name(ZoneName)) of
         {ok, Zone} ->
             % TODO: remove debug
-            lager:debug("Putting RRSet (~p) with Type: ~p for Zone (~p): ~p", [RRFqdn, Type, ZoneName, Records]),
+            logger:debug("Putting RRSet (~p) with Type: ~p for Zone (~p): ~p", [RRFqdn, Type, ZoneName, Records]),
             KeySets = Zone#zone.keysets,
             DnsKeyRRs = get_zone_dnskey_records(ZoneName),
             SignedRRSet = ?with_span(<<"sign_rrset">>, #{},
@@ -331,7 +331,7 @@ put_zone_rrset({ZoneName, Digest, Records, _Keys}, RRFqdn, Type, Counter) ->
                 end),
             write_rrset_sync_counter({ZoneName, RRFqdn, Type, Counter}),
 
-            lager:debug("RRSet update completed for FQDN: ~p, Type: ~p", [RRFqdn, Type]),
+            logger:debug("RRSet update completed for FQDN: ~p, Type: ~p", [RRFqdn, Type]),
             ok;
         _ -> % if zone is not in cache, return error
             {error, zone_not_found}
@@ -367,7 +367,7 @@ delete_zone_rrset(ZoneName, Digest, RRFqdn, Type, Counter) ->
             CurrentCounter = get_rrset_sync_counter(ZoneName, RRFqdn, Type),
             case Counter of
                 N when N =:= 0; CurrentCounter < N ->
-                    lager:debug("Removing RRSet (~p) with type ~p", [RRFqdn, Type]),
+                    logger:debug("Removing RRSet (~p) with type ~p", [RRFqdn, Type]),
                     ZoneRecordsCount = Zone#zone.record_count,
                     CurrentRRSetRecords = get_records_by_name_and_type(RRFqdn, Type),
                     erldns_storage:select_delete(zone_records_typed,
@@ -394,7 +394,7 @@ delete_zone_rrset(ZoneName, Digest, RRFqdn, Type, Counter) ->
                             ok
                     end;
                 N when CurrentCounter > N ->
-                    lager:debug("Not processing delete operation for RRSet (~p): counter (~p) provided is lower than system", [RRFqdn, Counter])
+                    logger:debug("Not processing delete operation for RRSet (~p): counter (~p) provided is lower than system", [RRFqdn, Counter])
             end;
         _ ->
             {error, zone_not_found}
@@ -449,7 +449,7 @@ init([]) ->
 % gen_server callbacks
 
 handle_call(Message, _From, State) ->
-    lager:debug("Received unsupported call (message: ~p)", [Message]),
+    logger:debug("Received unsupported call (message: ~p)", [Message]),
     {reply, ok, State}.
 
 handle_cast({delete, Name}, State) ->
@@ -457,7 +457,7 @@ handle_cast({delete, Name}, State) ->
     delete_zone_records(Name),
     {noreply, State};
 handle_cast(Message, State) ->
-    lager:debug("Received unsupported cast (message: ~p)", [Message]),
+    logger:debug("Received unsupported cast (message: ~p)", [Message]),
     {noreply, State}.
 
 handle_info(_Message, State) ->
@@ -552,11 +552,11 @@ build_typed_index(Records) ->
 sign_zone(Zone = #zone{keysets = []}) ->
     Zone;
 sign_zone(Zone) ->
-    % lager:debug("Signing zone (name: ~p)", [Zone#zone.name]),
+    % logger:debug("Signing zone (name: ~p)", [Zone#zone.name]),
     DnskeyRRs = lists:filter(erldns_records:match_type(?DNS_TYPE_DNSKEY), Zone#zone.records),
     KeyRRSigRecords = lists:flatten(lists:map(erldns_dnssec:key_rrset_signer(Zone#zone.name, DnskeyRRs), Zone#zone.keysets)),
     Verify = verify_zone(Zone, DnskeyRRs, KeyRRSigRecords),
-    lager:debug("Zone verified: ~p", [Verify]),
+    logger:debug("Zone verified: ~p", [Verify]),
     % TODO: remove wildcard signatures as they will not be used but are taking up space
     ZoneRRSigRecords =
         lists:flatten(lists:map(erldns_dnssec:zone_rrset_signer(Zone#zone.name,
@@ -575,24 +575,24 @@ sign_zone(Zone) ->
 
 -spec verify_zone(erldns:zone(), [dns:rr()], [dns:rr()]) -> boolean().
 verify_zone(_Zone, DnskeyRRs, KeyRRSigRecords) ->
-    % lager:debug("Verify zone (name: ~p)", [Zone#zone.name]),
+    % logger:debug("Verify zone (name: ~p)", [Zone#zone.name]),
     case lists:filter(fun(RR) -> RR#dns_rr.data#dns_rrdata_dnskey.flags =:= ?DNSKEY_KSK_TYPE end, DnskeyRRs) of
         [] ->
             false;
         KSKs ->
-            % lager:debug("KSKs: ~p", [KSKs]),
+            % logger:debug("KSKs: ~p", [KSKs]),
             KSKDnskey = lists:last(KSKs),
             RRSig = lists:last(KeyRRSigRecords),
-            % lager:debug("Attempting to verify RRSIG (key: ~p)", [KSKDnskey]),
+            % logger:debug("Attempting to verify RRSIG (key: ~p)", [KSKDnskey]),
             VerifyResult = dnssec:verify_rrsig(RRSig, DnskeyRRs, [KSKDnskey], []),
-            % lager:debug("KSK verification (verified?: ~p)", [VerifyResult]),
+            % logger:debug("KSK verification (verified?: ~p)", [VerifyResult]),
             VerifyResult
     end.
 
 % Sign RRSet
 -spec sign_rrset(binary(), [dns:rr()], [dns:rr()], [erldns:keyset()]) -> [dns:rr()].
 sign_rrset(Name, Records, DnsKeyRRs, KeySets) ->
-    % lager:debug("Signing RRSet for zone (name: ~p)", [Name]),
+    % logger:debug("Signing RRSet for zone (name: ~p)", [Name]),
     KeyRRSigRecords = lists:flatten(lists:map(erldns_dnssec:key_rrset_signer(Name, DnsKeyRRs), KeySets)),
     ZoneRecords = get_records_by_name_and_type(Name, ?DNS_TYPE_SOA),
     RRSigRecords =
@@ -607,7 +607,7 @@ sign_rrset(Name, Records, DnsKeyRRs, KeySets) ->
 % Verify RRSet
 -spec verify_rrset([dns:rr()], [dns:rr()]) -> boolean().
 verify_rrset(DnsKeyRRs, KeyRRSigRecords) ->
-    % lager:debug("Verify RRSet"),
+    % logger:debug("Verify RRSet"),
     case lists:filter(fun(RR) -> RR#dns_rr.data#dns_rrdata_dnskey.flags =:= ?DNSKEY_KSK_TYPE end, DnsKeyRRs) of
         [] ->
             false;
@@ -616,7 +616,7 @@ verify_rrset(DnsKeyRRs, KeyRRSigRecords) ->
                 [] ->
                     false;
                 _ ->
-                    % lager:debug("KSKs: ~p", [KSKs]),
+                    % logger:debug("KSKs: ~p", [KSKs]),
                     KSKDnskey = lists:last(KSKs),
                     RRSig = lists:last(KeyRRSigRecords),
                     VerifyResult = dnssec:verify_rrsig(RRSig, DnsKeyRRs, [KSKDnskey], []),
