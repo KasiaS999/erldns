@@ -17,14 +17,12 @@
 
 -behavior(gen_event).
 
--export([
-    init/1,
-    handle_event/2,
-    handle_call/2,
-    handle_info/2,
-    code_change/3,
-    terminate/2
-]).
+-export([init/1,
+         handle_event/2,
+         handle_call/2,
+         handle_info/2,
+         code_change/3,
+         terminate/2]).
 
 -record(state, {servers_running = false}).
 
@@ -36,16 +34,12 @@ handle_event({_M, start_servers}, State) ->
         false ->
             % Start up the UDP and TCP servers
             logger:info("Starting the UDP and TCP supervisor"),
-            supervisor:start_child(
-                erldns_sup,
-                #{
-                    id => erldns_sup,
-                    start => {erldns_server_sup, start_link, []},
-                    restart => permanent,
-                    shutdown => 5000,
-                    type => supervisor
-                }
-            ),
+            supervisor:start_child(erldns_sup,
+                                   #{id => erldns_sup,
+                                     start => {erldns_server_sup, start_link, []},
+                                     restart => permanent,
+                                     shutdown => 5000,
+                                     type => supervisor}),
             erldns_events:notify({?MODULE, servers_started}),
             {ok, State#state{servers_running = true}};
         _ ->
@@ -97,10 +91,8 @@ handle_event({M = erldns_zone_parser, E = error, {Name, Type, Data, Reason}}, St
     logger:error("Error parsing record (module: ~p, event: ~p, name: ~p, type: ~p, data: ~p, reason: ~p)", [M, E, Name, Type, Data, Reason]),
     {ok, State};
 handle_event({M = erldns_zone_parser, E = error, {Name, Type, Data, Exception, Reason}}, State) ->
-    logger:error(
-        "Error parsing record (module: ~p, event: ~p, name: ~p, type: ~p, data: ~p, exception: ~p, reason: ~p)",
-        [M, E, Name, Type, Data, Exception, Reason]
-    ),
+    logger:error("Error parsing record (module: ~p, event: ~p, name: ~p, type: ~p, data: ~p, exception: ~p, reason: ~p)",
+                [M, E, Name, Type, Data, Exception, Reason]),
     {ok, State};
 handle_event({M = erldns_zone_parser, E = unsupported_record, Data}, State) ->
     logger:warning("Unsupported record (module: ~p, event: ~p, data: ~p)", [M, E, Data]),
@@ -109,15 +101,11 @@ handle_event({M = erldns_decoder, E = decode_message_error, {Exception, Reason, 
     logger:error("Error decoding message (module: ~p, event: ~p, data: ~p, exception: ~p, reason: ~p)", [M, E, Bin, Exception, Reason]),
     {ok, State};
 handle_event({M = eldns_encoder, E = encode_message_error, {Exception, Reason, Response}}, State) ->
-    logger:error("Error encoding message (module: ~p, event: ~p, response: ~p, exception: ~p, reason: ~p)", [
-        M, E, Response, Exception, Reason
-    ]),
+    logger:error("Error encoding message (module: ~p, event: ~p, response: ~p, exception: ~p, reason: ~p)", [M, E, Response, Exception, Reason]),
     {ok, State};
 handle_event({M = erldns_encoder, E = encode_message_error, {Exception, Reason, Response, Opts}}, State) ->
-    logger:error(
-        "Error encoding with opts (module: ~p, event: ~p, response: ~p, opts: ~p, exception: ~p, reason: ~p)",
-        [M, E, Response, Opts, Exception, Reason]
-    ),
+    logger:error("Error encoding with opts (module: ~p, event: ~p, response: ~p, opts: ~p, exception: ~p, reason: ~p)",
+                [M, E, Response, Opts, Exception, Reason]),
     {ok, State};
 handle_event({M = erldns_storage, E = failed_zones_load, Reason}, State) ->
     logger:error("Failed to load zones (module: ~p, event: ~p, reason: ~p)", [M, E, Reason]),

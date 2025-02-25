@@ -20,31 +20,27 @@
 %% inter-module API
 -export([start_link/0]).
 %% API
--export([
-    create/1,
-    insert/2,
-    delete_table/1,
-    delete/2,
-    select_delete/2,
-    backup_table/1,
-    backup_tables/0,
-    select/2,
-    select/3,
-    foldl/3,
-    empty_table/1,
-    list_table/1,
-    load_zones/0,
-    load_zones/1
-]).
+-export([create/1,
+         insert/2,
+         delete_table/1,
+         delete/2,
+         select_delete/2,
+         backup_table/1,
+         backup_tables/0,
+         select/2,
+         select/3,
+         foldl/3,
+         empty_table/1,
+         list_table/1,
+         load_zones/0,
+         load_zones/1]).
 %% gen_server callbacks
--export([
-    init/1,
-    handle_call/3,
-    handle_cast/2,
-    handle_info/2,
-    terminate/2,
-    code_change/3
-]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
 -record(state, {}).
 
@@ -170,23 +166,13 @@ load_zones(Filename) when is_list(Filename) ->
     case file:read_file(Filename) of
         {ok, Binary} ->
             logger:debug("Parsing zones JSON"),
-
-            %% The "object_finish" callback override is here so that we don't return maps
-            %% and instead keep the list of decoded information as a keyword list. Maybe we
-            %% won't need this behavior in the future, but for now it's a good way to keep
-            %% compatibility with what we used before to decode JSON (jsx).
-            {JsonZones, ok, _} = json:decode(Binary, ok, #{
-                object_finish => fun(Acc, OldAcc) -> {lists:reverse(Acc), OldAcc} end
-            }),
-
+            JsonZones = jsx:decode(Binary, [{return_maps, false}]),
             logger:debug("Putting zones into cache"),
-            lists:foreach(
-                fun(JsonZone) ->
-                    Zone = erldns_zone_parser:zone_to_erlang(JsonZone),
-                    ok = erldns_zone_cache:put_zone(Zone)
-                end,
-                JsonZones
-            ),
+            lists:foreach(fun(JsonZone) ->
+                             Zone = erldns_zone_parser:zone_to_erlang(JsonZone),
+                             ok = erldns_zone_cache:put_zone(Zone)
+                          end,
+                          JsonZones),
             logger:debug("Loaded zones (count: ~p)", [length(JsonZones)]),
             {ok, length(JsonZones)};
         {error, Reason} ->

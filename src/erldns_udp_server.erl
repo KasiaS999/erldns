@@ -18,27 +18,22 @@
 -behavior(gen_server).
 
 % API
--export([
-    start_link/2,
-    start_link/4,
-    start_link/5,
-    is_running/0
-]).
+-export([start_link/2,
+         start_link/4,
+         start_link/5,
+         is_running/0]).
 % Gen server hooks
--export([
-    init/1,
-    handle_call/3,
-    handle_cast/2,
-    handle_info/2,
-    terminate/2,
-    code_change/3
-]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 % Internal API
 -export([handle_request/5]).
 
 -define(SERVER, ?MODULE).
-% 1 MB
--define(DEFAULT_UDP_RECBUF, 1024 * 1024).
+-define(DEFAULT_UDP_RECBUF, 1024 * 1024). % 1 MB
 
 -record(state, {address, port, socket, workers}).
 
@@ -71,27 +66,24 @@ is_running() ->
 init([InetFamily]) ->
     Port = erldns_config:get_port(),
     {ok, Socket} = start(Port, InetFamily),
-    {ok, #state{
-        port = Port,
-        socket = Socket,
-        workers = make_workers(queue:new())
-    }};
+    {ok,
+     #state{port = Port,
+            socket = Socket,
+            workers = make_workers(queue:new())}};
 init([InetFamily, Address, Port]) ->
     {ok, Socket} = start(Address, Port, InetFamily),
-    {ok, #state{
-        address = Address,
-        port = Port,
-        socket = Socket,
-        workers = make_workers(queue:new())
-    }};
+    {ok,
+     #state{address = Address,
+            port = Port,
+            socket = Socket,
+            workers = make_workers(queue:new())}};
 init([InetFamily, Address, Port, SocketOpts]) ->
     {ok, Socket} = start(Address, Port, InetFamily, SocketOpts),
-    {ok, #state{
-        address = Address,
-        port = Port,
-        socket = Socket,
-        workers = make_workers(queue:new())
-    }}.
+    {ok,
+     #state{address = Address,
+            port = Port,
+            socket = Socket,
+            workers = make_workers(queue:new())}}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -101,12 +93,11 @@ handle_cast(_Message, State) ->
 
 handle_info(timeout, State) ->
     {noreply, State};
-handle_info({udp_passive, _Socket}, State) ->
-    inet:setopts(State#state.socket, [{active, 100}]),
-    {noreply, State};
 handle_info({udp, Socket, Host, Port, Bin}, State) ->
     % logger:debug("Received request: ~p", [Bin]),
-    folsom_metrics:histogram_timed_update(udp_handoff_histogram, ?MODULE, handle_request, [Socket, Host, Port, Bin, State]);
+    Response = folsom_metrics:histogram_timed_update(udp_handoff_histogram, ?MODULE, handle_request, [Socket, Host, Port, Bin, State]),
+    inet:setopts(State#state.socket, [{active, 100}]),
+    Response;
 handle_info(_Message, State) ->
     {noreply, State}.
 
@@ -123,11 +114,7 @@ start(Port, InetFamily) ->
 
 start(Address, Port, InetFamily) ->
     logger:info("Starting UDP server (family: ~p, address: ~p, port: ~p)", [InetFamily, Address, Port]),
-    case
-        gen_udp:open(Port, [
-            binary, {active, 100}, {reuseaddr, true}, {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily
-        ])
-    of
+    case gen_udp:open(Port, [binary, {active, 100}, {reuseaddr, true}, {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily]) of
         {ok, Socket} ->
             logger:info("UDP server (family: ~p, address: ~p, socket: ~p)", [InetFamily, Address, Socket]),
             {ok, Socket};
@@ -138,20 +125,8 @@ start(Address, Port, InetFamily) ->
 
 start(Address, Port, InetFamily, SocketOpts) ->
     logger:info("Starting UDP server (family: ~p, address: ~p, port ~p, sockopts: ~p)", [InetFamily, Address, Port, SocketOpts]),
-    case
-        gen_udp:open(
-            Port,
-            [
-                {reuseaddr, true},
-                binary,
-                {active, 100},
-                {read_packets, 1000},
-                {ip, Address},
-                {recbuf, ?DEFAULT_UDP_RECBUF},
-                InetFamily
-                | SocketOpts
-            ]
-        )
+    case gen_udp:open(Port,
+                      [{reuseaddr, true}, binary, {active, 100}, {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily | SocketOpts])
     of
         {ok, Socket} ->
             logger:info("UDP server (family: ~p, address: ~p, socket: ~p, sockopts: ~p)", [InetFamily, Address, Socket, SocketOpts]),

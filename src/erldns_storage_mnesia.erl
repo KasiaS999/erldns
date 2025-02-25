@@ -21,20 +21,18 @@
 -include("erldns.hrl").
 
 %% API
--export([
-    create/1,
-    insert/2,
-    delete_table/1,
-    delete/2,
-    select_delete/2,
-    backup_table/1,
-    backup_tables/0,
-    select/2,
-    select/3,
-    foldl/3,
-    empty_table/1,
-    list_table/1
-]).
+-export([create/1,
+         insert/2,
+         delete_table/1,
+         delete/2,
+         select_delete/2,
+         backup_table/1,
+         backup_tables/0,
+         select/2,
+         select/3,
+         foldl/3,
+         empty_table/1,
+         list_table/1]).
 
 -spec create(atom()) -> ok.
 %% @doc Create the schema for mnesia, get the configuration from the config. Function sends 'ok'
@@ -84,9 +82,7 @@ create(schema) ->
                     end;
                 _ ->
                     Schema = mnesia:change_table_copy_type(schema, node(), disc_copies),
-                    Copy = lists:foldl(
-                        fun(Table, Acc) -> Acc ++ [mnesia:add_table_copy(Table, node(), disc_copies)] end, [], Tables -- [schema]
-                    ),
+                    Copy = lists:foldl(fun(Table, Acc) -> Acc ++ [mnesia:add_table_copy(Table, node(), disc_copies)] end, [], Tables -- [schema]),
                     logger:debug("Copy done Schema= ~p, Others=~p", [Schema, Copy])
             end
     end,
@@ -109,11 +105,7 @@ create(zones) ->
             {error, Error}
     end;
 create(zone_records_typed) ->
-    case
-        mnesia:create_table(zone_records_typed, [
-            {attributes, record_info(fields, zone_records_typed)}, {disc_copies, [node()]}, {type, bag}
-        ])
-    of
+    case mnesia:create_table(zone_records_typed, [{attributes, record_info(fields, zone_records_typed)}, {disc_copies, [node()]}, {type, bag}]) of
         {aborted, {already_exists, zone_records_typed}} ->
             logger:warning("The zone records typed table already exists (node: ~p)", [node()]),
             ok;
@@ -166,16 +158,12 @@ insert(zones, {_N, #zone{} = Zone}) ->
 insert(zone_records_typed, {{ZoneName, Fqdn, Type}, Records}) ->
     Write =
         fun() ->
-            mnesia:write(
-                zone_records_typed,
-                #zone_records_typed{
-                    zone_name = ZoneName,
-                    fqdn = Fqdn,
-                    records = Records,
-                    type = Type
-                },
-                write
-            )
+           mnesia:write(zone_records_typed,
+                        #zone_records_typed{zone_name = ZoneName,
+                                            fqdn = Fqdn,
+                                            records = Records,
+                                            type = Type},
+                        write)
         end,
     case mnesia:activity(transaction, Write) of
         ok ->
@@ -231,9 +219,9 @@ delete(Table, Key) ->
 select_delete(Table, [{{{ZoneName, Fqdn, Type}, _}, _, _}]) ->
     SelectDelete =
         fun() ->
-            Records = mnesia:match_object(Table, {zone_records_typed, ZoneName, Fqdn, Type, '_'}, write),
-            lists:foreach(fun(R) -> mnesia:dirty_delete_object(R) end, Records),
-            {ok, length(Records)}
+           Records = mnesia:match_object(Table, {zone_records_typed, ZoneName, Fqdn, Type, '_'}, write),
+           lists:foreach(fun(R) -> mnesia:dirty_delete_object(R) end, Records),
+           {ok, length(Records)}
         end,
     mnesia:activity(transaction, SelectDelete).
 
@@ -255,10 +243,10 @@ backup_tables() ->
 select(Table, Key) ->
     Select =
         fun() ->
-            case mnesia:read({Table, Key}) of
-                [Record] -> [{Key, Record}];
-                _ -> []
-            end
+           case mnesia:read({Table, Key}) of
+               [Record] -> [{Key, Record}];
+               _ -> []
+           end
         end,
     mnesia:activity(transaction, Select).
 
@@ -267,15 +255,15 @@ select(Table, Key) ->
 select(Table, [{{{ZoneName, Fqdn}, _}, _, _}], _Limit) ->
     SelectFun =
         fun() ->
-            Records = mnesia:match_object(Table, {zone_records, ZoneName, Fqdn, '_'}, read),
-            [Record || {_, _, _, Record} <- Records]
+           Records = mnesia:match_object(Table, {zone_records, ZoneName, Fqdn, '_'}, read),
+           [Record || {_, _, _, Record} <- Records]
         end,
     mnesia:activity(transaction, SelectFun);
 select(Table, [{{{ZoneName, Fqdn, Type}, _}, _, _}], _Limit) ->
     SelectFun =
         fun() ->
-            Records = mnesia:match_object(Table, {zone_records_typed, ZoneName, Fqdn, Type, '_'}, read),
-            [Record || {_, _, _, _, Record} <- Records]
+           Records = mnesia:match_object(Table, {zone_records_typed, ZoneName, Fqdn, Type, '_'}, read),
+           [Record || {_, _, _, _, Record} <- Records]
         end,
     mnesia:activity(transaction, SelectFun).
 
@@ -304,30 +292,26 @@ empty_table(Table) ->
 -spec list_table(atom()) -> [] | [#zone{}] | [#authorities{}] | [tuple()] | {error, doesnt_exist}.
 list_table(zones) ->
     Pattern =
-        #zone{
-            name = '_',
-            version = '_',
-            authority = '_',
-            record_count = '_',
-            records = '_',
-            records_by_name = '_',
-            records_by_type = '_'
-        },
+        #zone{name = '_',
+              version = '_',
+              authority = '_',
+              record_count = '_',
+              records = '_',
+              records_by_name = '_',
+              records_by_type = '_'},
     mnesia:dirty_match_object(zones, Pattern);
 list_table(authorities) ->
     Pattern =
-        #authorities{
-            owner_name = '_',
-            ttl = '_',
-            class = '_',
-            name_server = '_',
-            email_addr = '_',
-            serial_num = '_',
-            refresh = '_',
-            retry = '_',
-            expiry = '_',
-            nxdomain = '_'
-        },
+        #authorities{owner_name = '_',
+                     ttl = '_',
+                     class = '_',
+                     name_server = '_',
+                     email_addr = '_',
+                     serial_num = '_',
+                     refresh = '_',
+                     retry = '_',
+                     expiry = '_',
+                     nxdomain = '_'},
     select(authorities, Pattern, 0);
 list_table(_Name) ->
     {error, doesnt_exist}.
