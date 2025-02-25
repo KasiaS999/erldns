@@ -104,7 +104,7 @@ handle_call({process, DecodedMessage, Socket, Port, {udp, Host}, SpanCtx}, _From
              ),
     case Result of
         {false, EncodedMessage} ->
-            % lager:debug("Sending encoded response to ~p", [DestHost]),
+            % logger:debug("Sending encoded response to ~p", [DestHost]),
             gen_udp:send(Socket, DestHost, Port, EncodedMessage);
         {true, EncodedMessage, Message} when is_record(Message, dns_message) ->
             gen_udp:send(Socket, DestHost, Port, EncodedMessage);
@@ -152,7 +152,7 @@ max_payload_size(Message) ->
 %simulate_timeout(DecodedMessage) ->
   %[Question] = DecodedMessage#dns_message.questions,
   %Name = Question#dns_query.name,
-  %lager:info("qname: ~p", [Name]),
+  %logger:info("qname: ~p", [Name]),
   %case Name of
 
     %<<"www.example.com">> ->
